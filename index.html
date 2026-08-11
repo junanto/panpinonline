@@ -147,41 +147,56 @@ const analytics = getAnalytics(app);
 
         btnJoin.addEventListener('click', joinGame);
 
-        async function joinGame() {
-            playerName = document.getElementById('player-name').value.trim() || 'Pemain';
-            roomId = document.getElementById('room-id').value.trim() || 'pinang101';
+async function joinGame() {
+    playerName = document.getElementById('player-name').value.trim() || 'Pemain';
+    roomId = document.getElementById('room-id').value.trim() || 'pinang101';
 
-            const roomRef = ref(db, `rooms/${roomId}`);
-            const snapshot = await get(roomRef);
-            const roomData = snapshot.val();
+    // Matikan tombol sementara agar tidak diklik ganda
+    btnJoin.disabled = true;
+    btnJoin.textContent = "Menghubungkan...";
 
-            // Tentukan apakah masuk sebagai P1 atau P2
-            if (!roomData || !roomData.p1) {
-                myKey = 'p1';
-            } else if (!roomData.p2) {
-                myKey = 'p2';
-            } else {
-                alert("Room ini sudah penuh (Maksimal 2 pemain)!");
-                return;
-            }
+    try {
+        const roomRef = ref(db, `rooms/${roomId}`);
+        const snapshot = await get(roomRef);
+        const roomData = snapshot.val() || {};
 
-            // Simpan data pemain ke Firebase
-            const myPlayerRef = ref(db, `rooms/${roomId}/${myKey}`);
-            await set(myPlayerRef, {
-                name: playerName,
-                step: 0
-            });
-
-            // Hapus data otomatis jika pemain menutup tab / terputus
-            onDisconnect(myPlayerRef).remove();
-
-            setupPanel.style.display = 'none';
-            gamePanel.style.display = 'flex';
-            statusBar.textContent = `Kamu adalah ${myKey.toUpperCase()} (${playerName}). Menunggu lawan...`;
-
-            // Mulai mendengarkan pembaruan Real-Time dari Firebase
-            listenToRoom();
+        // Tentukan peran pemain (P1 atau P2)
+        if (!roomData.p1) {
+            myKey = 'p1';
+        } else if (!roomData.p2) {
+            myKey = 'p2';
+        } else {
+            alert("Room ini sudah penuh (Maksimal 2 pemain)!");
+            btnJoin.disabled = false;
+            btnJoin.textContent = "Masuk Game";
+            return;
         }
+
+        // Simpan data pemain ke Firebase
+        const myPlayerRef = ref(db, `rooms/${roomId}/${myKey}`);
+        await set(myPlayerRef, {
+            name: playerName,
+            step: 0
+        });
+
+        // Hapus data otomatis dari Firebase saat tab/browser ditutup
+        onDisconnect(myPlayerRef).remove();
+
+        // Tampilkan arena game
+        setupPanel.style.display = 'none';
+        gamePanel.style.display = 'flex';
+        statusBar.textContent = `Kamu adalah ${myKey.toUpperCase()} (${playerName}). Menunggu lawan...`;
+
+        // Jalankan listener data real-time
+        listenToRoom();
+
+    } catch (error) {
+        console.error("Gagal terhubung ke Firebase:", error);
+        alert("Gagal masuk room! Periksa koneksi atau Firebase Rules Anda.\nDetail: " + error.message);
+        btnJoin.disabled = false;
+        btnJoin.textContent = "Masuk Game";
+    }
+}
 
         function listenToRoom() {
             const roomRef = ref(db, `rooms/${roomId}`);
