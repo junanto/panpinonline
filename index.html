@@ -149,11 +149,11 @@ const analytics = getAnalytics(app);
 
         btnJoin.addEventListener('click', joinGame);
 
+// 1. FUNGSI JOIN GAME YANG SUDAH PERBAIKAN RESET
 async function joinGame() {
     playerName = document.getElementById('player-name').value.trim() || 'Pemain';
     roomId = document.getElementById('room-id').value.trim() || 'pinang101';
 
-    // Matikan tombol sementara agar tidak diklik ganda
     btnJoin.disabled = true;
     btnJoin.textContent = "Menghubungkan...";
 
@@ -162,39 +162,53 @@ async function joinGame() {
         const snapshot = await get(roomRef);
         const roomData = snapshot.val() || {};
 
-        // Tentukan peran pemain (P1 atau P2)
-        if (!roomData.p1) {
+        // JIKA ROOM SUDAH SELESAI (ADA WINNER) TAPI TIDAK ADA PEMAIN AKTIF, RESET ROOM
+        if (roomData.winner && !roomData.p1 && !roomData.p2) {
+            await set(roomRef, null); // Hapus seluruh data room lama
+        }
+
+        // Ambil data terbaru setelah potensi reset
+        const updatedSnapshot = await get(roomRef);
+        const currentData = updatedSnapshot.val() || {};
+
+        // Tentukan role (P1 atau P2)
+        if (!currentData.p1) {
             myKey = 'p1';
-        } else if (!roomData.p2) {
+            // Jika P1 baru masuk dan tidak ada P2, bersihkan sisa data winner lama
+            await set(ref(db, `rooms/${roomId}/winner`), null);
+        } else if (!currentData.p2) {
             myKey = 'p2';
         } else {
-            alert("Room ini sudah penuh (Maksimal 2 pemain)!");
+            alert("Room ini sedang penuh/dimainkan pemain lain!");
             btnJoin.disabled = false;
             btnJoin.textContent = "Masuk Game";
             return;
         }
 
-        // Simpan data pemain ke Firebase
+        // Reset step lokal
+        myStep = 0;
+        currentQuestionIndex = 0;
+
+        // Simpan data pemain baru ke Firebase
         const myPlayerRef = ref(db, `rooms/${roomId}/${myKey}`);
         await set(myPlayerRef, {
             name: playerName,
             step: 0
         });
 
-        // Hapus data otomatis dari Firebase saat tab/browser ditutup
+        // Hapus data pemain dari Firebase jika tab/browser ditutup
         onDisconnect(myPlayerRef).remove();
 
-        // Tampilkan arena game
+        // Tampilan UI
         setupPanel.style.display = 'none';
         gamePanel.style.display = 'flex';
         statusBar.textContent = `Kamu adalah ${myKey.toUpperCase()} (${playerName}). Menunggu lawan...`;
 
-        // Jalankan listener data real-time
         listenToRoom();
 
     } catch (error) {
-        console.error("Gagal terhubung ke Firebase:", error);
-        alert("Gagal masuk room! Periksa koneksi atau Firebase Rules Anda.\nDetail: " + error.message);
+        console.error("Gagal terhubung:", error);
+        alert("Gagal masuk room: " + error.message);
         btnJoin.disabled = false;
         btnJoin.textContent = "Masuk Game";
     }
@@ -238,10 +252,31 @@ async function joinGame() {
                         feedback.style.color = "#c62828";
                     }
                     questionBox.textContent = "Permainan Selesai!";
+                    // Sediakan tombol Main Lagi
+                    const btnRestart = document.createElement('button');
+                    btnRestart.className = 'btn';
+                    btnRestart.textContent = '🔄 Main Lagi di Room Ini';
+                    btnRestart.onclick = restartGame;
+                    optionsGrid.appendChild(btnRestart);
                 }
             });
         }
 
+async function restartGame() {
+    // Reset step pemain dan hapus pemenang di Firebase
+    myStep = 0;
+    currentQuestionIndex = 0;
+
+    const updates = {};
+    updates[`rooms/${roomId}/${myKey}/step`] = 0;
+    updates[`rooms/${roomId}/winner`] = null;
+
+    await update(ref(db), updates);
+
+    feedback.textContent = "Game di-reset! Menunggu giliran...";
+    showQuestion();
+}
+        
         function showQuestion() {
             if (!gameActive) return;
             feedback.textContent = "";
