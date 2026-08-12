@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panjat Pinang Tim (5 vs 5)</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #e0f7fa; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px; }
+        h1 { color: #00695c; margin-bottom: 10px; text-align: center; font-size: 24px; }
+
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+        .btn { width: 100%; padding: 12px; background: #00796b; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .btn:hover { background: #004d40; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .game-container { display: none; flex-direction: row; gap: 20px; background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.15); max-width: 950px; width: 100%; }
+
+        /* Arena 2 Tiang Tim */
+        .arena { display: flex; justify-content: space-around; width: 360px; height: 460px; background: linear-gradient(to bottom, #81d4fa 75%, #81c784 75%); border: 3px solid #004d40; border-radius: 8px; position: relative; overflow: hidden; }
+        .team-section { position: relative; width: 150px; height: 100%; display: flex; justify-content: center; }
+        .team-title { position: absolute; top: 5px; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 10px; color: white; z-index: 10; }
+        .title-teamA { background: #d32f2f; }
+        .title-teamB { background: #1976d2; }
+        
+        .pole { width: 30px; height: 350px; background: #8d6e63; border: 2px solid #4e342e; position: absolute; bottom: 15px; border-radius: 6px; box-shadow: inset 4px 0 6px rgba(0,0,0,0.2); }
+        .prize { position: absolute; top: 25px; font-size: 28px; z-index: 2; }
+
+        /* Group Avatar Tim */
+        .team-group { position: absolute; bottom: 15px; transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-wrap: wrap; width: 120px; justify-content: center; gap: 2px; z-index: 5; }
+        .player-avatar { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .avatar-teamA { background: #e53935; }
+        .avatar-teamB { background: #1e88e5; }
+
+        /* Panel Kuis */
+        .quiz-panel { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .status-bar { padding: 12px; font-weight: bold; text-align: center; border-radius: 6px; background: #f57c00; color: white; margin-bottom: 15px; font-size: 14px; }
+        .progress-info { margin-bottom: 10px; font-size: 13px; font-weight: bold; color: #555; display: flex; justify-content: space-between; }
+        .question-box { font-size: 17px; font-weight: 600; color: #333; margin-bottom: 15px; min-height: 60px; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-option { padding: 12px; font-size: 14px; border: 2px solid #ccc; background-color: #f9f9f9; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .btn-option:hover:not(:disabled) { background-color: #e0e0e0; }
+        .btn-option:disabled { cursor: not-allowed; opacity: 0.5; }
+        .feedback { margin-top: 15px; font-weight: bold; text-align: center; min-height: 24px; }
+
+        @media (max-width: 700px) {
+            .game-container { flex-direction: column; align-items: center; }
+            .arena { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Panjat Pinang Tim (5 vs 5)</h1>
+
+    <!-- Form Join -->
+    <div id="setup-panel" class="card">
+        <div class="input-group">
+            <label>Nama Pemain</label>
+            <input type="text" id="player-name" placeholder="Masukkan nama..." value="Pemain">
+        </div>
+        <div class="input-group">
+            <label>Pilih Tim</label>
+            <select id="team-select">
+                <option value="teamA">🔴 Tim Merah (Tiang 1)</option>
+                <option value="teamB">🔵 Tim Biru (Tiang 2)</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Kode Room / Kamar</label>
+            <input type="text" id="room-id" placeholder="Contoh: timpinang" value="timpinang">
+        </div>
+        <button class="btn" id="btn-join">Masuk Game</button>
+    </div>
+
+    <!-- Arena Game -->
+    <div id="game-panel" class="game-container">
+        <div class="arena">
+            <!-- Tiang Tim Merah -->
+            <div class="team-section">
+                <div class="team-title title-teamA">TIM MERAH</div>
+                <div class="prize">🎁🚲</div>
+                <div class="pole"></div>
+                <div id="group-teamA" class="team-group"></div>
+            </div>
+            <!-- Tiang Tim Biru -->
+            <div class="team-section">
+                <div class="team-title title-teamB">TIM BIRU</div>
+                <div class="prize">🎁🏆</div>
+                <div class="pole"></div>
+                <div id="group-teamB" class="team-group"></div>
+            </div>
+        </div>
+
+        <div class="quiz-panel">
+            <div>
+                <div id="status-bar" class="status-bar">Menghubungkan ke Firebase...</div>
+                <div class="progress-info">
+                    <span id="player-role-info">Peran: -</span>
+                    <span id="quiz-count-info">Soal Diselesaikan: 0/2</span>
+                </div>
+                <div id="question-box" class="question-box">Menunggu 10 pemain lengkap...</div>
+                <div id="options-grid" class="options-grid"></div>
+            </div>
+            <div>
+                <div id="feedback" class="feedback"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK v10 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update, onDisconnect, get } 
+        from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // 1. ISIKAN CONFIG FIREBASE ANDA
+        const firebaseConfig = {
+            apiKey: "API_KEY_ANDA",
+            authDomain: "PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "PROJECT_ID",
+            storageBucket: "PROJECT_ID.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abc123def456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Bank Soal Kuis (Tiap pemain akan mendapat 2 pertanyaan acak/berurutan)
+        const quizBank = [
+            { question: "1. Berapakah hasil dari 15 + 28?", options: ["41", "43", "45", "42"], answer: 1 },
+            { question: "2. Ibu kota negara Indonesia yang baru adalah...", options: ["IKN Nusantara", "Jakarta", "Surabaya", "Bandung"], answer: 0 },
+            { question: "3. Proses pembuatan makanan pada tumbuhan dinamakan...", options: ["Respirasi", "Fotosintesis", "Transpirasi", "Oksidasi"], answer: 1 },
+            { question: "4. Pancasila sila ke-3 berbunyi...", options: ["Ketuhanan Yang Maha Esa", "Keadilan Sosial", "Persatuan Indonesia", "Kemanusiaan"], answer: 2 },
+            { question: "5. Planet terbesar dalam tata surya kita adalah...", options: ["Bumi", "Saturnus", "Jupiter", "Mars"], answer: 2 },
+            { question: "6. Lagu 'Indonesia Raya' diciptakan oleh...", options: ["W.R. Soepratman", "Ibu Soed", "C. Simanjuntak", "Kusbini"], answer: 0 },
+            { question: "7. Candi Borobudur terletak di provinsi...", options: ["Jawa Tengah", "Jawa Timur", "Jawa Barat", "DIY"], answer: 0 },
+            { question: "8. Lambang negara Indonesia adalah...", options: ["Burung Garuda", "Harimau", "Komodo", "Gajah"], answer: 0 },
+            { question: "9. Alat pernapasan pada ikan adalah...", options: ["Paru-paru", "Insang", "Kulit", "Trakea"], answer: 1 },
+            { question: "10. Warna bendera negara Indonesia adalah...", options: ["Merah Putih", "Putih Merah", "Merah Biru", "Kuning Hijau"], answer: 0 }
+        ];
+
+        let myKey = null; // 'p1' - 'p5' (Team A) atau 'p6' - 'p10' (Team B)
+        let myTeam = '';  // 'teamA' atau 'teamB'
+        let roomId = '';
+        let playerName = '';
+        let myQuestions = [];
+        let currentQuizIndex = 0;
+        let answeredCount = 0;
+        let gameActive = false;
+
+        // Ketinggian Tiang (Total 10 Step sampai Puncak)
+        const stepHeights = [15, 48, 81, 114, 147, 180, 213, 246, 279, 312, 345];
+
+        const setupPanel = document.getElementById('setup-panel');
+        const gamePanel = document.getElementById('game-panel');
+        const statusBar = document.getElementById('status-bar');
+        const questionBox = document.getElementById('question-box');
+        const optionsGrid = document.getElementById('options-grid');
+        const feedback = document.getElementById('feedback');
+        const btnJoin = document.getElementById('btn-join');
+        const playerRoleInfo = document.getElementById('player-role-info');
+        const quizCountInfo = document.getElementById('quiz-count-info');
+
+        btnJoin.addEventListener('click', joinGame);
+
+        async function joinGame() {
+            playerName = document.getElementById('player-name').value.trim() || 'Pemain';
+            myTeam = document.getElementById('team-select').value;
+            roomId = document.getElementById('room-id').value.trim() || 'timpinang';
+
+            btnJoin.disabled = true;
+            btnJoin.textContent = "Menghubungkan...";
+
+            try {
+                const roomRef = ref(db, `rooms/${roomId}`);
+                const snapshot = await get(roomRef);
+                const roomData = snapshot.val() || {};
+
+                // Tentukan Slot berdasarkan Tim yang dipilih
+                const availableRoles = myTeam === 'teamA' 
+                    ? ['p1', 'p2', 'p3', 'p4', 'p5'] 
+                    : ['p6', 'p7', 'p8', 'p9', 'p10'];
+
+                for (let r of availableRoles) {
+                    if (!roomData.players || !roomData.players[r]) {
+                        myKey = r;
+                        break;
+                    }
+                }
+
+                if (!myKey) {
+                    alert(`Slot untuk ${myTeam === 'teamA' ? 'Tim Merah' : 'Tim Biru'} sudah penuh (Maksimal 5 pemain per tim)!`);
+                    btnJoin.disabled = false;
+                    btnJoin.textContent = "Masuk Game";
+                    return;
+                }
+
+                // Inisialisasi Skor Tim jika room baru
+                if (!roomData.scores) {
+                    await set(ref(db, `rooms/${roomId}/scores`), { teamA: 0, teamB: 0 });
+                }
+
+                // Alokasikan 2 Pertanyaan Spesifik untuk Pemain ini
+                const playerIndexNumber = parseInt(myKey.replace('p', '')) - 1;
+                myQuestions = [
+                    quizBank[(playerIndexNumber * 2) % quizBank.length],
+                    quizBank[(playerIndexNumber * 2 + 1) % quizBank.length]
+                ];
+
+                // Simpan Data Pemain ke Firebase
+                const myPlayerRef = ref(db, `rooms/${roomId}/players/${myKey}`);
+                await set(myPlayerRef, {
+                    name: playerName,
+                    team: myTeam
+                });
+
+                onDisconnect(myPlayerRef).remove();
+
+                setupPanel.style.display = 'none';
+                gamePanel.style.display = 'flex';
+                playerRoleInfo.textContent = `Peran: ${myKey.toUpperCase()} (${playerName}) - ${myTeam === 'teamA' ? 'Tim Merah' : 'Tim Biru'}`;
+
+                listenToRoom();
+
+            } catch (error) {
+                console.error("Gagal terhubung:", error);
+                alert("Gagal masuk room: " + error.message);
+                btnJoin.disabled = false;
+                btnJoin.textContent = "Masuk Game";
+            }
+        }
+
+        function listenToRoom() {
+            const roomRef = ref(db, `rooms/${roomId}`);
+
+            onValue(roomRef, (snapshot) => {
+                const data = snapshot.val() || {};
+                const players = data.players || {};
+                const scores = data.scores || { teamA: 0, teamB: 0 };
+
+                // 1. Hitung Jumlah Pemain yang Sudah Terhubung
+                const totalConnected = Object.keys(players).length;
+
+                // Render Avatar Pemain di Masing-masing Tiang Tim
+                renderTeamAvatars('group-teamA', players, ['p1', 'p2', 'p3', 'p4', 'p5'], 'avatar-teamA');
+                renderTeamAvatars('group-teamB', players, ['p6', 'p7', 'p8', 'p9', 'p10'], 'avatar-teamB');
+
+                // 2. Update Ketinggian Tiang Berdasarkan Poin Tim
+                document.getElementById('group-teamA').style.bottom = stepHeights[scores.teamA || 0] + 'px';
+                document.getElementById('group-teamB').style.bottom = stepHeights[scores.teamB || 0] + 'px';
+
+                // 3. Cek Syarat Mulai (Harus 10 Pemain Lengkap)
+                if (totalConnected < 10 && !data.winner) {
+                    gameActive = false;
+                    statusBar.style.background = "#f57c00";
+                    statusBar.textContent = `⏳ MENUNGGU PEMAIN LENGKAP (${totalConnected}/10 Pemain)...`;
+                    questionBox.textContent = "Permainan otomatis dimulai begitu 10 pemain bergabung.";
+                    optionsGrid.innerHTML = "";
+                } else if (totalConnected >= 10 && !gameActive && !data.winner) {
+                    gameActive = true;
+                    statusBar.style.background = "#2e7d32";
+                    statusBar.textContent = "⚡ PEMAIN LENGKAP! ADU CEPAT TIM KERJA SAMA!";
+                    showQuestion();
+                }
+
+                // 4. Cek Pemenang
+                if (data.winner) {
+                    gameActive = false;
+                    optionsGrid.innerHTML = "";
+                    if (data.winner === myTeam) {
+                        feedback.textContent = "🏆 SELAMAT! TIM KAMU BERHASIL MENCAPAI PUNCKA PERTAMA KALI!";
+                        feedback.style.color = "#2e7d32";
+                    } else {
+                        const winTeamName = data.winner === 'teamA' ? 'Tim Merah' : 'Tim Biru';
+                        feedback.textContent = `❌ ${winTeamName} Menang Lebih Dulu!`;
+                        feedback.style.color = "#c62828";
+                    }
+                    questionBox.textContent = "Permainan Selesai!";
+                }
+            });
+        }
+
+        function renderTeamAvatars(groupId, players, roleList, avatarClass) {
+            const container = document.getElementById(groupId);
+            container.innerHTML = "";
+            roleList.forEach(role => {
+                if (players[role]) {
+                    const avatar = document.createElement('div');
+                    avatar.className = `player-avatar ${avatarClass}`;
+                    avatar.textContent = role.toUpperCase();
+                    avatar.title = players[role].name;
+                    container.appendChild(avatar);
+                }
+            });
+        }
+
+        function showQuestion() {
+            if (!gameActive) return;
+
+            if (answeredCount >= 2) {
+                questionBox.textContent = "✅ Kamu telah menyelesaikan seluruh 2 tugas pertanyaanmu! Tunggu rekan timmu menyelesaikan kuisnya.";
+                optionsGrid.innerHTML = "";
+                return;
+            }
+
+            const q = myQuestions[currentQuizIndex];
+            questionBox.textContent = q.question;
+            optionsGrid.innerHTML = "";
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-option';
+                btn.textContent = opt;
+                btn.onclick = () => checkAnswer(index);
+                optionsGrid.appendChild(btn);
+            });
+        }
+
+        async function checkAnswer(selectedIndex) {
+            if (!gameActive || answeredCount >= 2) return;
+
+            const q = myQuestions[currentQuizIndex];
+            const isCorrect = selectedIndex === q.answer;
+
+            // Ambil Skor Tim Terkini dari Firebase
+            const scoreRef = ref(db, `rooms/${roomId}/scores/${myTeam}`);
+            const snapshot = await get(scoreRef);
+            let currentTeamScore = snapshot.val() || 0;
+
+            if (isCorrect) {
+                currentTeamScore = Math.min(currentTeamScore + 1, 10);
+                feedback.textContent = "Jawaban Benar! Timmu Naik +1 Step 🚀";
+                feedback.style.color = "#2e7d32";
+            } else {
+                currentTeamScore = Math.max(currentTeamScore - 1, 0);
+                feedback.textContent = "Jawaban Salah! Timmu Merosot -1 Step 💥";
+                feedback.style.color = "#c62828";
+            }
+
+            // Simpan Skor Tim Baru & Cek Pemenang
+            const updates = {};
+            updates[`rooms/${roomId}/scores/${myTeam}`] = currentTeamScore;
+
+            if (currentTeamScore >= 10) {
+                updates[`rooms/${roomId}/winner`] = myTeam;
+            }
+
+            await update(ref(db), updates);
+
+            answeredCount++;
+            currentQuizIndex++;
+            quizCountInfo.textContent = `Soal Diselesaikan: ${answeredCount}/2`;
+
+            setTimeout(showQuestion, 800);
+        }
+    </script>
+</body>
+</html>
